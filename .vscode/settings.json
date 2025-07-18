@@ -1,4 +1,4 @@
 {
-    "Codegeex.CompletionDelay": 0.4,
-    "Codegeex.GenerationPreference": "automatic"
+    "Codegeex.CompletionDelay": 0.5,
+    "Codegeex.GenerationPreference": "line by line"
 }
