@@ -9,3 +9,7 @@ mask机制
 https://ifwind.github.io/2021/08/17/Transformer%E7%9B%B8%E5%85%B3%E2%80%94%E2%80%94%EF%BC%887%EF%BC%89Mask%E6%9C%BA%E5%88%B6/#unilm%E4%B8%AD%E7%9A%84mask
 
 
+Attention进阶史（MHA, MQA, GQA, MLA）
+https://www.gnn.club/?p=2729
+
+https://kexue.fm/archives/10091
