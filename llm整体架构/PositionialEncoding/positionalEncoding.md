@@ -12,7 +12,15 @@
 
 ## 三角式   
 《Attention is All You Need》
-https://zhuanlan.zhihu.com/p/454482273
+https://zhuanlan.zhihu.com/p/454482273首页
+番剧
+直播
+游戏中心
+会员购
+漫画
+赛事
+
+
 
 
 由于sin是周期函数，因此从纵向来看，如果函数的频率偏大，引起波长偏短，则不同t下的位置向量可能出现重合的情况。比如在下图中(d_model = 3），图中的点表示每个token的位置向量，颜色越深，token的位置越往后，在频率偏大的情况下，位置响亮点连成了一个闭环，靠前位置（黄色）和靠后位置（棕黑色）竟然靠得非常近：
@@ -20,8 +28,24 @@ https://zhuanlan.zhihu.com/p/454482273
 为了避免这种情况，我们尽量将函数的波长拉长。一种简单的解决办法是同一把所有的频率都设成一个非常小的值。
 
 # 相对位置编码
-这部分先不学了吧 了解即可
+
 ## 经典式
+![alt text](image.png)
+
+## XLNET式
+![alt text](image-1.png)
+
+## T5式
+注意力公式可以分别理解为“输入-输入”、“输入-位置”、“位置-输入”、“位置-位置”四项注意力的组合
+![alt text](image-2.png)
+
+## DeBERTa式
+T5是干脆去掉了第2、3项，只保留第4项并替换为相对位置编码，而DeBERTa则刚刚相反，它扔掉了第4项，保留第2、3项并且替换为相对位置编码（果然，科研就是枚举所有的排列组合看哪个最优）
+![alt text](image-3.png)
+
+![alt text](image-4.png)
+pK,pV是选择可训练式的还是三角函数式的，都可以达到处理任意长度文本的需求。
+
 
 # 旋转位置编码
 绝对和相对的统一
@@ -42,3 +66,6 @@ https://www.zhihu.com/tardis/zm/art/647109286?source_id=1003
 上文的续作  https://zhuanlan.zhihu.com/p/675243992
 
 NTK－aware Scaled RoPE  https://zhuanlan.zhihu.com/p/20328774059
+
+# ALibi
+![alt text](image-5.png)
