@@ -1,3 +1,6 @@
+import torch
+import torch.nn.functional as F
+
 #@torch.inference_mode()
 @torch.no_grad()
 def generate(self, idx, 
