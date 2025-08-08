@@ -8,3 +8,5 @@ TODO(学习过程中收到的问题)：
 * [ ] 6 从零开始训练混合专家模型（MoE）
 * [ ] 7 llama系列论文
 * [X] 8 闭包
+* [X] 9 zero-shot few-shot
+* [ ] 10 优化器adam adamw
