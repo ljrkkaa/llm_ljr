@@ -7,6 +7,14 @@ TODO(学习过程中收到的问题)：
 * [X] 5 MOE学习
 * [ ] 6 从零开始训练混合专家模型（MoE）
 * [ ] 7 llama系列论文
+  * [X] 7.1 llama1
+  * [X] 7.2 llama2
+  * [ ] 7.3 llama3
 * [X] 8 闭包
 * [X] 9 zero-shot few-shot
-* [ ] 10 优化器adam adamw
+* [X] 10 优化器adam adamw
+* [X] 11 学习率调度
+* [ ] 12 RLHF
+* [X] 13 labelSmoothing
+* [ ] 14 gradient_checkpointing
+* [ ] 15

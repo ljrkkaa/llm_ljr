@@ -1,0 +1,4 @@
+3，设置gradient_checkpointing=True可以节约显存。其主要应用了torch.utils.checkpoint.checkpoint方法。
+它的原理非常简单，在对decoder_layer进行forward时不保存中间激活值从而节约显存，backward时重新计算相关值，从而通过时间换取了空间。
+
+4，gradient_checkpointing和use_cache不能同时设置为True，前者是为了节约显存时间换空间的，后者是为了节约时间空间换时间。
