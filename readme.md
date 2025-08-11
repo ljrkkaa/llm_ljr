@@ -16,5 +16,5 @@ TODO(学习过程中收到的问题)：
 * [X] 11 学习率调度
 * [ ] 12 RLHF
 * [X] 13 labelSmoothing
-* [ ] 14 gradient_checkpointing
+* [X] 14 gradient_checkpointing
 * [ ] 15
