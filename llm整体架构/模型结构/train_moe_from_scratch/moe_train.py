@@ -31,14 +31,15 @@ class RMSNorm(nn.Module):
         return self.weight * hidden_states.float()
     
 def rotate_half(x):
-    x1, x2 = x.chunk(2, dim=-1)
+    x1, x2 = x.chunk(2, dim=-1)         # 把它均匀分成 2 份
     return torch.cat((-x2, x1), dim=-1)
 
 def apply_rotate_pos_emb(q, k, cos, sin, unsqueeze_dim=2):
-    
+    # [1,seq_len,1, dim]
     cos = cos.unsqueeze(unsqueeze_dim)
     sin = sin.unsqueeze(unsqueeze_dim)
-   
+    # q:(batch, seq_len, num_head, head_dim)       k:(b, s, num_key_value_heads, head_dim)
+    # q_embed:(batch, seq_len, num_head, head_dim) 
     q_embed = (q*cos) + (rotate_half(q)*sin)
     k_embed = (k*cos) + (rotate_half(k)*sin)
     
@@ -52,12 +53,14 @@ class RotaryEmbedding(nn.Module):
         inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
         t = torch.arange(max_seq_len).float().unsqueeze(1)
         freqs = t @ inv_freq.unsqueeze(0)
+        # [maxlen,dim]
         freqs = torch.cat((freqs, freqs), dim=-1)
         
         self.register_buffer("cos_cached", freqs.cos())
         self.register_buffer("sin_cached", freqs.sin())
         
     def forward(self, q, k):
+        #[1,seq_len,dim]
         cos = self.cos_cached[:q.shape[1], :].unsqueeze(0)
         sin = self.sin_cached[:q.shape[1], :].unsqueeze(0)
         return apply_rotate_pos_emb(q, k, cos, sin)
@@ -93,7 +96,7 @@ class Attention(nn.Module):
         self.rotary_emb = RotaryEmbedding(self.head_dim)
         
     def forward(self, hidden_states, use_kv_cache=False):
-        b, s = hidden_states.shape[:2]
+        b, s = hidden_states.shape[:2]  # [batch, seq_len, hidden_dim]
         if use_kv_cache and self.eval():
             if self.k_cache is None or self.k_cache.shape[1] != s-1:
                 q, k, v = self.q_proj(hidden_states), self.k_proj(hidden_states), self.v_proj(hidden_states)
@@ -129,7 +132,7 @@ class Attention(nn.Module):
                                                     is_causal=self.is_causal) 
         else:
             mask = torch.full((1, 1, self.config.max_seq_len, self.config.max_seq_len), float("-inf"))  # 初始化掩码
-            mask = torch.triu(mask, diagonal=1)  # 生成上三角掩码
+            mask = torch.triu(mask, diagonal=1)  # 生成上三角掩码 保留上三角元素-inf，其余置零
             scores = torch.matmul(q, k.transpose(2, 3)) / math.sqrt(self.head_dim)  # 计算注意力分数
             scores = scores + self.mask[:, :, :s, :s]  # 应用掩码
             scores = F.softmax(scores.float(), dim=-1).type_as(q)  # 计算 softmax
@@ -154,7 +157,16 @@ class MLP(nn.Module):
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias)
         
     def forward(self, x):
-        
+        '''
+        x -> (Linear -> SiLU) ⊙ (Linear) -> Linear ⊙ 是逐元素乘法
+
+        好处：
+        引入门控机制，增加表达能力。
+
+        训练更稳定，收敛速度快。
+
+        在相同参数量下比普通 GELU FFN 效果更好。
+        '''
         down_proj = self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
         return down_proj
 
@@ -162,15 +174,17 @@ def load_balancing_loss_func(
     gate_logits,
     num_experts,
     top_k):
+    # 负载均衡损失
     concatenated_gate_logits = torch.cat([layer_gate for layer_gate in gate_logits], dim=0) # 各个层的gate_logit进行合并[layers X batch_size X sequence_length, num_experts]
     routing_weights = F.softmax(concatenated_gate_logits, dim=-1)
     _, selected_experts = torch.topk(routing_weights, top_k, dim=-1)
-    expert_mask = torch.nn.functional.one_hot(selected_experts, num_experts)
+    # (layers * batch_size * seq_len, top_k, num_experts) 沿 “token 维度” 的平均
+    expert_mask = torch.nn.functional.one_hot(selected_experts, num_experts) 
     
-    tokens_per_expert = torch.mean(expert_mask.float(), dim=0)
+    tokens_per_expert = torch.mean(expert_mask.float(), dim=0) # 每个专家被分配 token 的比例 (top_k, num_experts)
 
 
-    router_prob_per_expert = torch.mean(routing_weights, dim=0)
+    router_prob_per_expert = torch.mean(routing_weights, dim=0) # 每个专家的平均路由概率 (num_experts,)
     overall_loss = torch.sum(tokens_per_expert * router_prob_per_expert.unsqueeze(0))
     return overall_loss * num_experts
     
@@ -186,7 +200,7 @@ class Gating(nn.Module):
     def forward(self, x):
         # x dim: b, s, hidden_size
         logits = self.gate(x)  # gate: b, s, expert_num
-        logits_topk, indices = logits.topk(self.topk, dim=-1) # 选择概率最大的两个专家，返回两个专家对每个token的概率
+        logits_topk, indices = logits.topk(self.topk, dim=-1) # 选择概率最大的两个专家，返回两个专家对每个token的概率   维度(B, S, topk)
         zeros = torch.full_like(logits, float("-inf")) # 创建一个全为负无穷的矩阵，用于屏蔽其他专家的概率并重新归一化概率最大的两个专家
         sparse_logits = zeros.scatter(dim=-1, index=indices, src=logits_topk)  # 将选择的两个专家的概率按指定索引填充
         sparse_logits = F.softmax(sparse_logits, dim=-1) # 得到一个稀疏矩阵，选择的两个专家对每个token的概率和为1
@@ -204,6 +218,16 @@ class Expert(nn.Module):
         self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=config.mlp_bias)
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=config.mlp_bias) 
     def forward(self, x):
+        '''
+        x -> (Linear -> SiLU) ⊙ (Linear) -> Linear ⊙ 是逐元素乘法
+
+        好处：
+        引入门控机制，增加表达能力。
+
+        训练更稳定，收敛速度快。
+
+        在相同参数量下比普通 GELU FFN 效果更好。
+        '''
         down_proj = self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
         return down_proj
 
@@ -221,9 +245,9 @@ class MoE(nn.Module):
         sparse_logits_flat = sparse_logits.view(-1, sparse_logits.shape[-1])  # (batch_size * seq_len, export_num))
         
         for i, expert in enumerate(self.experts):
-            expert_mask = (indices == i).any(-1)  # (batch_size, seq_len)
+            expert_mask = (indices == i).any(-1)  # (batch_size, seq_len) 最后一个维度上做逻辑 OR（只要有一个 True 就返回 True）
             expert_mask_flat = expert_mask.view(-1) # (batch_size * seq_len)
-            if expert_mask_flat.any():
+            if expert_mask_flat.any():  # 检查 expert_mask_flat 中 是否至少有一个 True
                 expert_input = x_flat[expert_mask_flat]  # (seq_true, dim)
                 export_output = expert(expert_input)  # (seq_true, dim)
                 
