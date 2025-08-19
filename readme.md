@@ -18,4 +18,4 @@ TODO(学习过程中收到的问题)：
 * [ ] 12 RLHF
 * [X] 13 labelSmoothing
 * [X] 14 gradient_checkpointing
-* [ ] 15
+* [ ] 15 CoT
