@@ -63,6 +63,8 @@ https://blog.csdn.net/weixin_43646592/article/details/130811139
 
 https://blog.csdn.net/m0_48948682/article/details/138350055
 
+https://zhuanlan.zhihu.com/p/605516116 (猛猿讲解 奖励模型部分可以细看)
+
 **InstructGPT的训练机制主要分为了3步：**
 
 * 1、SFT：Supervised Fine-Tuning，有监督微调。
