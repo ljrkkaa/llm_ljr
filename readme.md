@@ -10,7 +10,7 @@ TODO(学习过程中收到的问题)：
   * [X] 7.1 llama1
   * [X] 7.2 llama2
   * [X] 7.3 Code Llama
-  * [ ] 7.4 llama3
+  * [X] 7.4 llama3
 * [X] 8 闭包
 * [X] 9 zero-shot few-shot
 * [X] 10 优化器adam adamw
@@ -19,3 +19,9 @@ TODO(学习过程中收到的问题)：
 * [X] 13 labelSmoothing
 * [X] 14 gradient_checkpointing
 * [ ] 15 CoT
+* [ ] 16 pairwise feedback
+* [ ] 17 
+* [ ] 18
+* [ ] 19
+* [ ] 20
+* [ ] 21
