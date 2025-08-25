@@ -20,7 +20,7 @@ TODO(学习过程中收到的问题)：
 * [X] 14 gradient_checkpointing
 * [ ] 15 CoT
 * [ ] 16 pairwise feedback
-* [ ] 17 
+* [ ] 17 KL散度三种估计
 * [ ] 18
 * [ ] 19
 * [ ] 20
