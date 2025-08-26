@@ -55,7 +55,7 @@ class GRPOArguments:
     num_generations = 4 # 组内样本数
     max_prompt_length = 256 # 最大输入长度
     max_generate_length = 256 # 最大输出长度
-    reward_weights : List[float] = None # 奖励的权重（多个奖励函数）
+    reward_weights : List[float] = None # 奖励的权重（多个奖励函数） 基于规则奖励函数有多个奖励
     beta = 0.0 # KL散度的系数，为0则忽略KL散度，即不使用参考模型
     clip_eps = 0.2
     gradient_accumulation_steps = 2 # 梯度累加
@@ -82,13 +82,13 @@ class GRPOTrainer:
         self.ref_model = None
         if self.args.beta != 0.0:
             self.ref_model = deepcopy(model)
-            self.ref_model.eval()
+            self.ref_model.eval()       # 不需要算梯度
     
         
-        if isinstance(tokenizer, str):
+        if isinstance(tokenizer, str):  # 默认是路径
             tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         
-        self.tokenizer = self.get_tokenizer(tokenizer)
+        self.tokenizer = self.get_tokenizer(tokenizer)  # 调整tokenizer的padding_side为left
         
         
         if isinstance(reward_funcs, str):
@@ -100,7 +100,7 @@ class GRPOTrainer:
                 reward_funcs[i] = AutoModelForSequenceClassification.from_pretrained(
                     reward_func, num_labels=1).to(self.args.device)
         
-        self.reward_funcs = reward_funcs
+        self.reward_funcs = reward_funcs    # 不是字符串则是函数
         
         if reward_tokenizers is None:
             reward_tokenizers = [None] * len(reward_funcs)
@@ -117,7 +117,7 @@ class GRPOTrainer:
                 if reward_tokenizer is None:
                     reward_tokenizer = AutoTokenizer.from_pretrained(reward_func.config._name_or_path)
                 if reward_tokenizer.pad_token_id is None:
-                    reward_tokenizer.pad_token = reward_tokenizer.eos_token
+                    reward_tokenizer.pad_token = reward_tokenizer.eos_token # pad_token_id为None时，默认使用eos_token作为pad_token
                 
                 reward_func.config.pad_token_id = reward_tokenizer.pad_token_id
                 reward_tokenizers[i] = reward_tokenizer
@@ -131,6 +131,7 @@ class GRPOTrainer:
         
         # 模型更新的次数
         self.update_steps = 0 
+        
     def get_tokenizer(self, tokenizer):
         tokenizer.padding_side = "left"
         return tokenizer
@@ -147,11 +148,19 @@ class GRPOTrainer:
         
         max_length = self.args.max_generate_length + self.args.max_prompt_length
         for prompt, answer in zip(prompts, answers):
+
             # 应用聊天模板，加入系统提示词
+            # apply_chat_template 就是自动帮你把 {"role": "...", "content": "..."} 这样的对话列表，拼成符合该模型预期的文本
+            # add_generation_prompt=True作用是 在最后自动加一个“assistant”开头的提示，告诉模型“接下来该你输出答案了”
+            # tokenize=False表示输出 纯文本字符串
+
+            # 最终input_text 会是一段拼接好的 prompt 文本，形式取决于所用模型的模板。它已经把 system + user 的内容组织好，并且在最后加上assistant 的生成起点。
             input_text = self.tokenizer.apply_chat_template([{"role": "system", 'content': SYSTEM_PROMPT}, {"role": "user", 'content': prompt}], add_generation_prompt=True, tokenize=False)
             
-            # 生成一个group的输入数据
+            # 生成一个group的输入数据 
+            # 相当于同时喂给模型多个相同的输入（常用于一次生成多个不同候选结果）
             inputs = self.tokenizer([input_text] * self.args.num_generations, padding='max_length', max_length=self.args.max_prompt_length, truncation=True, return_tensors='pt')
+            # (num_generations, max_prompt_length)
             prompt_ids = inputs['input_ids']
             with torch.no_grad():
                 prompt_response_ids = self.model.generate(**inputs.to(self.args.device), 
@@ -164,8 +173,9 @@ class GRPOTrainer:
                 prompt_response_ids = prompt_response_ids[:, :max_length]
             else:
                 prompt_response_ids = torch.cat([prompt_response_ids, torch.full((prompt_response_ids.size(0), max_length - prompt_response_ids.size(1)), fill_value=self.tokenizer.pad_token_id, device=prompt_response_ids.device)], dim=1)
-          
+            # ne=not equal token ≠ pad_token_id → 返回 True
             attention_mask = (prompt_response_ids.ne(self.tokenizer.pad_token_id)).to(dtype=torch.long)
+            # 只保留 生成的新 token
             response_ids = prompt_response_ids[:, prompt_ids.size(1):]
             action_mask = (response_ids.ne(self.tokenizer.eos_token_id) & response_ids.ne(self.tokenizer.pad_token_id)).to(dtype=torch.long)
         
@@ -239,6 +249,7 @@ class GRPOTrainer:
                     
                     else:
                         answers = [answer] * len(prompt_texts)
+                        # 只需要输出和答案 输入没用
                         output_reward_func = reward_func(prompts=prompt_texts, responses=response_texts, answers=answers)
                         output_reward_func = [reward if reward is not None else torch.nan for reward in output_reward_func]
                         rewards_per_func[i] = torch.tensor(output_reward_func, dtype=torch.float32, device=self.args.device)
@@ -269,7 +280,7 @@ class GRPOTrainer:
             "old_action_log_probs": torch.cat(batch_old_action_log_probs, dim=0),
             "ref_action_log_probs": torch.cat(batch_ref_action_log_probs, dim=0) if self.ref_model else None,
             "advantages": torch.cat(batch_advantages, dim=0),
-        }
+        }  
     
     def compute_loss(self, model, inputs):
         
@@ -290,13 +301,14 @@ class GRPOTrainer:
         
         advantages = inputs['advantages']
         
+        # 迭代次数大于1 用旧模型的概率分布计算 这里只有一轮更新
         old_action_log_probs = inputs['old_action_log_probs'] if self.args.num_iterations > 1 else action_log_probs.detach()
         coef_1 = torch.exp(action_log_probs - old_action_log_probs) # 重要性采样 shape: [batch_size * num_generations, num_actions]
         coef_2 = torch.clamp(coef_1, 1 - self.args.clip_eps, 1 + self.args.clip_eps)
         per_token_loss1 = coef_1 * advantages.unsqueeze(1) # 一个序列中每个token的优势是一样的
         per_token_loss2 = coef_2 * advantages.unsqueeze(1)
         per_token_loss = -torch.min(per_token_loss1, per_token_loss2)
-        per_token_loss = per_token_loss * action_mask
+        per_token_loss = per_token_loss * action_mask       # 去掉padding部分
         if self.args.beta != 0.0:
             per_token_loss = per_token_loss + self.args.beta * k3
         
@@ -312,9 +324,9 @@ class GRPOTrainer:
         
         # 计算策略模型输出token的概率
         output = model(input_ids, attention_mask=attention_mask)
-        logits = output.logits
-        log_probs = F.log_softmax(logits[:, :-1, :], dim=-1)
-        log_probs_labels = log_probs.gather(dim=-1, index=input_ids[:, 1:].unsqueeze(-1))
+        logits = output.logits   
+        log_probs = F.log_softmax(logits[:, :-1, :], dim=-1)  # (batch_size, seq_len-1, vocab_size)
+        log_probs_labels = log_probs.gather(dim=-1, index=input_ids[:, 1:].unsqueeze(-1))  # (batch_size, seq_len-1, 1)
         action_log_probs = log_probs_labels.squeeze(-1)[:, -num_actions:]
         return action_log_probs
 
@@ -350,8 +362,8 @@ class GRPOTrainer:
                 inputs = self.generate_experiences(batch)
                 self.input_buffer[idx % self.args.gradient_accumulation_steps] = inputs
                 if (idx + 1) % self.args.gradient_accumulation_steps == 0:
-                   
-                    for _ in range(self.args.num_iterations):
+                    
+                    for _ in range(self.args.num_iterations): # 所以没用旧模型 重要性采样一直是1
                         for step, inputs in enumerate(self.input_buffer):
                             self.train_step(self.model, inputs, self.optimizer, step)
                         
