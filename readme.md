@@ -19,8 +19,8 @@ TODO(学习过程中收到的问题)：
 * [X] 13 labelSmoothing
 * [X] 14 gradient_checkpointing
 * [ ] 15 CoT
-* [ ] 16 pairwise feedback
-* [ ] 17 KL散度三种估计
+* [X] 16 pairwise feedback
+* [X] 17 KL散度三种估计
 * [ ] 18
 * [ ] 19
 * [ ] 20
