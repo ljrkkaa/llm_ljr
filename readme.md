@@ -26,6 +26,6 @@ TODO(学习过程中收到的问题)：
   * [ ] 18.2 expert CoT -》 Learned CoT
 * [ ] 19 REINFORCE++
 * [ ] 20 REINFORCE++-bl
-* [ ] 21 RLOO
+* [X] 21 RLOO
 * [ ] 22 GSPO
  
