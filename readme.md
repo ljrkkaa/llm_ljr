@@ -21,7 +21,11 @@ TODO(学习过程中收到的问题)：
 * [ ] 15 CoT
 * [X] 16 pairwise feedback
 * [X] 17 KL散度三种估计
-* [ ] 18
-* [ ] 19
-* [ ] 20
-* [ ] 21
+* [ ] 18 Reasoning models 
+  * [ ] 18.1 Reasoning tokens
+  * [ ] 18.2 expert CoT -》 Learned CoT
+* [ ] 19 REINFORCE++
+* [ ] 20 REINFORCE++-bl
+* [ ] 21 RLOO
+* [ ] 22 GSPO
+ 

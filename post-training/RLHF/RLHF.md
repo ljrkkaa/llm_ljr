@@ -107,6 +107,8 @@ InstructGPT在SFT中标注的数据正是为了消除这种gap的。
 
 PPO的主要思想。 强化学习的模型称为策略模型，又称为策略。其中rθ是RM，为了确保RM打分不至于被过度优化，增加了个log项，那是KL散度，为了保证PPO学习出的强化学习SFT的预测不至于偏离原SFT模型的预测太多，因为RL就是用SFT模型初始化的。这就是PPO的主要思想。
 
+**这里的KL散度是token level的**
+
 语言模型预训练项。 另外地，InstructGPT在PPO的loss基础上加上了预训练损失，为了防止强化学习SFT模型只对打分这个任务过度拟合，导致泛化性能损失，所以加上了预训练语言模型的损失来确保模型在公开NLP数据集上的表现。加上了这一项，PPO就变为了PPO-ptx。
 
 ![](assets/20250820_154134_image.png)
@@ -162,14 +164,11 @@ https://www.zhihu.com/question/658316700/answer/3630596464 (还没细看)
 
 **我们希望训练出来的Actor模型既能达到符合人类喜好的目的，又尽量让它和SFT模型不要差异太大** 。简言之，**我们希望两个模型的输出分布尽量相似** 。
 
-
 ![](assets/20250821_102312_image.png)
-
 
 ### 3.2.3 Critic Model
 
 预测客观总收益
-
 
 ### 3.2.4 Reward Model
 
@@ -191,7 +190,6 @@ https://www.zhihu.com/question/658316700/answer/3630596464 (还没细看)
 
 ![](assets/20250821_103804_image.png)
 
-
 ![](assets/20250821_103852_image.png)
 
 再设计
@@ -202,14 +200,15 @@ https://www.zhihu.com/question/658316700/answer/3630596464 (还没细看)
 
 最后一个ADvT = RT-VT 倒退即可’
 
-
 #### 总结
 
 具体再看 https://zhuanlan.zhihu.com/p/677607581
 
+🚀️ 🚀️ 🚀️ 🚀️🚀️ 🚀️🚀️ 🚀️
+
+**Token 级别优势估计**：这类方法为序列中的每一步（Token）计算优势At ，通常依赖于价值函数Vt或者蒙特卡洛回报Gt（对于序列中的每一个 token，都计算一个独立的、可能不同的优势值优势。
+
 ![](assets/20250821_104717_image.png)
-
-
 
 ### 3.3.2 Critic loss
 
@@ -217,19 +216,17 @@ https://www.zhihu.com/question/658316700/answer/3630596464 (还没细看)
 
 ![](assets/20250821_105014_image.png)
 
-
- PPO-epoch
+PPO-epoch
 
 ![](assets/20250821_111026_image.png)
 
 ##### 实际收益优化
+
 ![](assets/20250821_110605_image.png)
 
 代入上面的ADvt公式 就是多加了一个未来的优势
 
 实际收益时advt和Vt都是老Critic（真正吃了batch的那个，exps）
-
-
 
 ##### **预估收益优化**
 
@@ -238,3 +235,7 @@ https://www.zhihu.com/question/658316700/answer/3630596464 (还没细看)
 产出的结果预估收益是随着ppo_epochs而变动的。
 
 ![](assets/20250821_111200_image.png)
+
+![](assets/20250827_105105_image.png)
+
+1

@@ -302,6 +302,7 @@ class GRPOTrainer:
         advantages = inputs['advantages']
         
         # 迭代次数大于1 用旧模型的概率分布计算 这里只有一轮更新
+        # .detach() 阻断梯度回传 旧critic 不需要梯度更新
         old_action_log_probs = inputs['old_action_log_probs'] if self.args.num_iterations > 1 else action_log_probs.detach()
         coef_1 = torch.exp(action_log_probs - old_action_log_probs) # 重要性采样 shape: [batch_size * num_generations, num_actions]
         coef_2 = torch.clamp(coef_1, 1 - self.args.clip_eps, 1 + self.args.clip_eps)
