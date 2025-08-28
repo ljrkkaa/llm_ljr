@@ -27,5 +27,14 @@ TODO(学习过程中收到的问题)：
 * [ ] 19 REINFORCE++
 * [ ] 20 REINFORCE++-bl
 * [X] 21 RLOO
-* [ ] 22 GSPO
+* [X] 22 GSPO
+* [ ] 23 路由重放策略 Routing Replay
+* [ ] 24
+* [ ] 25
+* [ ] 26
+* [ ] 27
+* [ ] 28
+* [ ] 29
+* [ ] 30
+
  

@@ -1,10 +1,21 @@
-# 1
+参考链接：
+https://zhuanlan.zhihu.com/p/1932829167801574272
+https://www.bilibili.com/video/BV14VhLzmEjg/?spm_id_from=333.337.search-card.all.click&vd_source=98e4164f2cbf19bf54ad534e5875112c
+zotero论文
 
+# 1 引言
 
+在更大的语言模型上使用 GRPO 时，会出现训练不稳定的情况。在这篇论文，作者认为这种现象源于 GRPO 的重要性权重的设计错误，GRPO 对于 next-token 的重要性权重，容易引入高方差的噪声，在 response 的长度的增加和裁剪机制的作用下，最终导致训练崩溃。
+
+为了解决这一问题，论文提出 GSPO (Group Sequence Policy Optimization)，将针对 token 分布的权重改换为针对 sequence 的重要性权重，并且从 sequence 的维度来计算梯度，而不是 token 的维度，和 reward 本身的定义保持一致。
+
+最终，GSPO 在 **MoE 模型的** RL 训练上解决了稳定性问题，从而不必单独设计复杂的 trick 来维持稳定，**简化了 RL 架构**
 
 # 2 GRPO的缺陷
 
 ## 重要性采样
+
+RL 阶段，我们首先会采样一个 large rollout batch，为了提高采样效率，通常我们会将其切分成几个 mini-batches 来进行梯度更新，这一过程无可避免地会导致off-policy场景的出现，同时这也一定程度上说明了PPO和 GRPO 的 clip 机制可以防止那些过度 off-policy 的样本参与梯度计算
 
 它的优化目标本质上是病态的（不适定的，ill-posed）这种病态源于对重要性采样权重的错误应用。
 
@@ -36,16 +47,39 @@ Si使用序列的重要性采样的几何平均
 
 # 4 GSPO-token
 
-
 ![](assets/20250827_174004_image.png)
 
-推导下来与sequence level的基本一致 
+推导下来与sequence level的基本一致
 
 ![](assets/20250827_174348_image.png)
 
+# 实验
 
-# 实验与总结
+## 路由重放策略 Routing Replay
+
+![](assets/20250828_105013_image.png)
+
+## MoE 训练中效果
+
+**背景** . MoE 模型的训练中，使用 GRPO 算法，专家激活的不稳定性可能会导致强化学习训练无法正常收敛，进行一次梯度更新后，即使对于相同的 response，所激活的专家也可能发生显著变化。这一不稳定要素，导致 token 级别的重要性权重波动更大，从而如之前讨论的，最后导致模型崩溃。
 
 相比于稠密模型的RL训练，MoE模型的稀疏激活特性引入了独特的稳定性挑战。特别地，我们发现当采用GRPO算法时，MoE模型的专家激活波动率可以防止RL训练正常收敛
 
 网友评论：其实本质上来说还是方差（不过GRPO这个importance ratio的估计倒确实是biased），moe主要可能直接出现expert变换导致token-level的ratio估计发生巨大变化，dense相对来说就还好
+
+![](https://pic4.zhimg.com/v2-6954b5e14cc70e636cc0e6d26d93acb9_r.jpg)
+
+# 总结
+
+GSPO专攻MOE下的优化 对dense效果不大
+
+对rL架构的优化没看明白
+
+![](assets/20250828_110523_image.png)
+
+https://github.com/volcengine/verl/pull/2775
+
+
+GSPO-token s_i 代码
+
+![](assets/20250828_111551_image.png)
