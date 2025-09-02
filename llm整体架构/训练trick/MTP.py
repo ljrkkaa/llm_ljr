@@ -38,8 +38,7 @@ class MTP(nn.Module):
         self.main_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path).base_model # 去掉了预测头
         # self.main_model.eval()
         # mtp模块
-        self.mtp_mod
-        ules = nn.ModuleList([MTPModule(self.main_model.config.hidden_size) for _ in range(self.config.predict_tokens_num-1)])
+        self.mtp_modules = nn.ModuleList([MTPModule(self.main_model.config.hidden_size) for _ in range(self.config.predict_tokens_num-1)])
         
         # 每个头共享参数
         self.output_head = nn.Linear(self.main_model.config.hidden_size, self.main_model.config.vocab_size)
@@ -133,16 +132,35 @@ class MTP(nn.Module):
                 accept_probs = torch.cat(accept_probs, dim=-1)
                 
                 # 保留概率值大于阈值的token, 接受这部分token,否则舍弃（舍弃某个token时，后面的token都要舍弃）
-                # 接受token的掩码
+                # 接受token的掩码 这个阈值还挺低的
                 accept_mask = (accept_probs > 1e-6)
                 print(f'接受掩码：{accept_mask}')
                 
                 if accept_mask.any():  # [1, 1, 0, 1]  ~accept_mask: [0, 0, 1, 0]
                     print(f'拒绝掩码：{~accept_mask}')
-                    # 获取被拒绝（舍弃）token对应的索引
-                    reject_token_index = (~accept_mask).nonzero(as_tuple=True)[1]
+                    # 获取被拒绝（舍弃）token对应的索引 
+                    # torch.nonzero(x) 会返回 非零元素的索引 返回一组索引元组 (tuple of tensors)
+                    '''
+                    例如：
+                    x = torch.tensor([[0, 1, 0],
+                                    [2, 0, 3]])
+
+                    print(torch.nonzero(x))
+                    输出：
+                    tensor([[0, 1],
+                            [1, 0],
+                            [1, 2]])
+
+                    idx = torch.nonzero(x, as_tuple=True)
+                    print(idx)
+                    (tensor([0, 1, 1]), tensor([1, 0, 2]))
+                    第 1 个张量：非零元素的行坐标 [0, 1, 1]
+                    第 2 个张量：非零元素的列坐标 [1, 0, 2]
+                    '''
+
+                    reject_token_index = (~accept_mask).nonzero(as_tuple=True)[1]  
                     print(f'拒绝token的索引：{reject_token_index}')
-                    # 如果有需要舍弃的token
+                    # 如果有需要舍弃的token 
                     if reject_token_index.shape[0] > 0:
                         
                         # 找出第一个被舍弃的token的索引，其之前的token是需要保留的，之后的全部舍弃
@@ -166,7 +184,7 @@ class MTP(nn.Module):
                    
                     seq = torch.cat([seq, accept_tokens], dim=1)
                 
-                else:
+                else: # 只取主模型的预测
                     logits = outputs['head_main']
                     
                     logits = logits[:, -1, :]
@@ -182,7 +200,6 @@ class MTP(nn.Module):
             return seq
             
             
-        
         
                     
         
@@ -207,7 +224,7 @@ def train(config, model, dataloader, optimizer, writer, device, epochs, print_st
                 
                 target = labels[:, 1+index+1:] # [batch_size, seq_len]
                 target = target.contiguous().view(-1) # [batch_size * seq_len]
-                
+                # [-100]是问题的标签 不计入
                 mtp_loss = F.cross_entropy(mtp_head_output, target, ignore_index=-100)
                 
                 mtp_loss.backward(retain_graph=True)
