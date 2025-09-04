@@ -6,8 +6,22 @@ import torch.nn.functional as F
 from dataset import DPODataset, DPODataCollator
 from train import LLM, Config
 
-
 def logits_to_probs(logits, labels):
+    """
+    用途：
+        从模型输出的 logits (B, T, V) 中提取出每个位置目标 token 的 log 概率。
+        等价于 log_softmax 后，再用标签索引出 log p(y_t)。
+
+    参数：
+        logits: Tensor, shape (batch_size, seq_len, vocab_size)
+            模型输出的未归一化 logits。
+        labels: Tensor, shape (batch_size, seq_len)
+            标签 ID（含 padding）。
+
+    返回：
+        probs: Tensor, shape (batch_size, seq_len)
+            每个位置的目标 token log 概率（不是普通概率）。
+    """
     # logits shape: (batch_size, seq_len, vocab_size)
     # labels shape: (batch_size, seq_len)
     # probs shape: (batch_size, seq_len)
@@ -16,6 +30,21 @@ def logits_to_probs(logits, labels):
     return probs
 
 def mask_logits(logits, labels):
+    """
+        用途：
+        对每条样本的 log 概率序列 (B, T) 做 padding mask，只保留非 padding 部分，
+        并把这些 log 概率相加，也就是概率相乘，得到“整条序列的 log likelihood”。
+
+    参数：
+        logits: Tensor, shape (batch_size, seq_len)
+            每个 token 的 log 概率（已通过 logits_to_probs 得到）。
+        labels: Tensor, shape (batch_size, seq_len)
+            标签序列，padding 用 0 表示。
+
+    返回：
+        new_logits: List[Tensor]，长度 batch_size
+            每个元素 shape (1,)，表示该样本的序列 log 概率和。
+    """
     # logits shape: (batch_size, seq_len, vocab_size)
     # labels_masks shape: (batch_size, seq_len)
     new_logits = []
