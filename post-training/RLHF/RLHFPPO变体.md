@@ -1,3 +1,6 @@
+
+以 PPO 为代表的On Policy 路线
+
 # 1 RLAIF
 
 参考链接：
