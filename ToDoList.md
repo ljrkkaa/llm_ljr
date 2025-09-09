@@ -20,7 +20,7 @@
 
 # 2025.9.8
 来自Qwen技术报告
-* [ ] FlashAttention
+* [X] FlashAttention
 * [ ] LogN-Scaling
 * [ ] 分层窗口Self-Attention
 * [ ] ChatML格式

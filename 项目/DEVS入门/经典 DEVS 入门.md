@@ -82,7 +82,7 @@ DEVS原子模型的形式化描述可以表示为如下七元组：
 
 因此，耦合模型可以定义为三元组： ⟨D,𝑀𝑆,𝐼𝑆⟩
 
-2 加入输入输出后  耦合的约束需要放宽以适应耦合模型的新功能：模型可以受耦合模型输入事件的影响，同样地，模型也可以影响耦合模型的输出事件。先前定义的约束被放宽，以允许 𝑠𝑒𝑙𝑓 ，即耦合模型本身。
+2 加入输入输出后  耦合的约束需要放宽以适应耦合模型的新功能：模型可以受耦合模型输入事件的影响，同样地，模型也可以影响耦合模型的输出事件。先前定义的约束被放宽，以**允许 𝑠𝑒𝑙𝑓 ，即耦合模型本身**。
 
 3 DEVS 通过定义一个tie-breaking function 平局打破函数（ select ）来解决这个问题。该函数接收所有冲突的模型，并返回优先级高于其他模型的那个。
 
@@ -153,3 +153,239 @@ qinit 指出我们过去进入了状态 sinit ，更具体地说，是 einit 时
 原子模型的语义是通过自然语言和高级伪代码定义的。耦合模型的语义是通过映射到这些原子模型来定义的。这两种方法都存在各自的问题。对于原子模型，伪代码不够具体，无法创建符合规范的 DEVS 模拟器：算法的许多细节没有明确规定（例如，外部事件来自哪里）。对于耦合模型，展平过程既优雅又规范，但在**运行时执行此展平操作效率非常低**。
 
 我们将为原子模型和耦合模型定义一个更详细、更正式的仿真算法。原子模型将获得更具体的定义，**并具有清晰的接口**，而耦合模型将**获得自己的仿真算法，而不会进行扁平化处理**。因此，耦合模型将获得“操作语义”而不是“转换语义”。（我擦那前面在干嘛
+
+表 1：抽象仿真器中使用的变量
+
+
+| name   | 名称  | type | 类型                                | explanation                  |
+| -------- | ------- | ------ | ------------------------------------- | ------------------------------ |
+| tl     | time  | 时间 | simulation time of last transition  | 最后一次状态转换的仿真时间   |
+| tn     | time  | 时间 | simulation time of next transition  | 下一次状态转换的仿真时间     |
+| t      | time  | 时间 | current simulation time             | 当前仿真时间                 |
+| e      | time  | 时间 | elapsed time since last transition  | 自上次状态转换以来的经过时间 |
+| s      | state | 状态 | current state of the atomic model   | 原子模型的当前状态           |
+| x      | event | 事件 | incoming event                      | 传入事件                     |
+| y      | event | 事件 | outgoing event                      | 传出事件                     |
+| from   | model | 模型 | source of the incoming message      | 输入消息的来源               |
+| parent | model | 模型 | coupled model containing this model | 包含此模型的耦合模型         |
+| self   | model | 模型 | current model                       | 当前模型                     |
+
+表 2：同步消息类型
+
+
+| type | 类型           | explanation                      | 解释           |
+| ------ | ---------------- | ---------------------------------- | ---------------- |
+| i    | initialization | initialization of the simulation | 模拟初始化     |
+| ∗   | transition     | transition in the model          | 模型中的转换   |
+| x    | input event    | input event for the model        | 模型的输入事件 |
+| y    | output event   | output event from the model      | 模型输出事件   |
+| done | done           | computation finished for a model | 模型计算完成   |
+
+## 4.1 原子模型的抽象仿真算法
+
+首先是原子模型的抽象仿真算法，如算法 4 所示 每次接收到同步消息时都会调用此算法
+
+消息由三个组件组成：消息类型、消息源和仿真时间
+
+条件语句分三类
+
+1. 在接收到 i 消息时，我们执行仿真时间的初始化。
+2. 接收一个 ∗ 消息，触发转换。该消息包含发送者和转换应该发生的时间。根据定义，转换只能发生在时间tn。 完成时间检查后，我们必须执行以下步骤：(1)生成输出，(2)将其发送给 ∗ 消息的发送者（我们的父级），(3)执行内部转换，(4)使用时间推进更新我们的时间，以及(5)通知我们的父级我们已完成消息处理，并传递我们下一次转换的时间。
+3. 接收到一个 x 消息，表示外部输入。这可以在我们上次状态转换 ( tl ) 和我们计划的状态转换 ( tn ) 之间的任何时间发生，因此我们再次确认模拟时间。请注意这些时间包含在内：由于 select 函数，另一个模型有可能正好在我们自己的计划状态转换之后或之前出现。 执行以下步骤：(1) 根据提供的模拟时间 ( t ) 计算经过的时间 ( e )，(2) 执行外部状态转换，(3) 更新下一个状态转换的模拟时间，以及 (4) 告知我们的父级我们已处理完消息，并传递我们下一个状态转换的时间。
+
+```
+ Algorithm: Abstract Simulator Message Handling**
+
+if receive (i, from, t) message then
+# 如果接收 (i, from, t) 消息则
+  tl ← t − e
+  tn ← tl + ta(s)
+  send (done, self, tn) to parent
+  # 发送 (done, self, tn) 到 parent
+
+else if receive (*, from, t) message then
+# 否则如果接收 (*, from, t) 消息则
+  if t = tn then
+    # 如果 t = tn
+    y ← λ(s)
+    if y ≠ ϕ then
+      send (y, self, t) to parent
+      # 发送 (y, self, t) 到 parent
+    end if
+    s ← δint(s)  
+    tl ← t  
+    tn ← tl + ta(s)  
+    send (done, self, tn) to parent  
+    # 发送 (done, self, tn) 给父节点  
+  end if 
+
+else if receive (x, from, t) message then
+# 否则如果接收 (x, from, t) 消息则
+
+  if tl ≤ t ≤ tn then
+    e ← t − tl
+    s ← δext((s, e), x)
+    tl ← t
+    tn ← tl + ta(s)
+    send (done, self, tn) to parent
+else
+  error: bad synchronization
+  # 错误：同步错误
+  end if
+end if
+```
+
+## 4.2 根协调器
+
+回想一下，抽象仿真算法没有任何自主行为。这表明存在另一个实体在控制仿真的进程。这个仿真实体是根协调器，它编码了主要的仿真循环。其算法如算法 5 所示。只要仿真需要继续，它就会向层次结构中最顶层的模型发送消息以执行状态转换。当收到回复时，仿真时间会推进到最顶层数据模型指示的时间。
+
+```
+**Algorithm: Coordinator Main Loop**
+
+send (i, main, 0.0) to topmost coupled model `top`  
+# 向最上层的耦合模型 top 发送 (i, main, 0.0)
+
+wait for (done, top, tN)  
+# 等待 (done, top, tN)
+
+t ← tN  
+while not terminationCondition() do  
+    # 当 terminationCondition() 不为真时
+
+    send (*, main, t) to topmost coupled model top  
+    # 向最上层的耦合模型 top 发送 (*, main, t)
+
+    wait for (done, top, tN)  
+    # 等待 (done, top, tN)
+
+    t ← tN  
+
+end while
+
+```
+
+## 4.3 耦合模型的抽象仿真算法
+
+由于存在展平算法，我们定义了一个用于耦合模型模拟的快捷方式，尽管这并非完全必要。耦合模型的抽象模拟算法显示在算法 6 中。
+
+耦合模型可以接收五种不同类型的同步消息：
+
+1. i 消息再次表示初始化。它仅将消息转发到所有其子模型，并将每个子模型标记为活动状态。每个耦合模型都有一个 tl 和 tn 变量，分别定义为其子模型的最大值和最小值。  子模型的任何状态转换也需要对其包含的耦合模型进行操作。当向子模型发送消息时，该子模型被标记为活动状态。其用途显示在 done 消息的处理中
+2. ∗ 消息再次指示了状态转换。与原子模型不同，耦合模型本身无法执行状态转换。相反，它会将消息转发给即将执行**select 函数以查找所有具有相同 tn 的模型**，并仅选择一个模型，然后向该模型发送 ∗ 消息。和之前一样，该模型被标记为活动状态，以确保我们等待其计算完成。
+3. y 消息表示一个输出消息。输出消息由子组件的输出函数输出，并且需要通过耦合模型进行路由。这部分功能**负责将消息路由到发出消息的模型的受影响者**。请注意，受影响者中也可能有一个是 self ，表示消息需要外部路由（即，路由到耦合模型的输出）。无论如何，**消息都需要使用翻译函数进行翻译**。实际调用的翻译函数取决于消息的源和目标。
+4. x 消息可以接收，表示输入。这主要与输出消息相同，但现在我们也可以处理从我们自己的父组件接收到的消息。
+5. 可以接收到一个 done 消息，表示一个子模型已经完成了它的计算。被标记为活动子模型的子模型现在将被取消标记。当从所有子模型（即所有子模型都是非活动状态）接收到 done 消息时，我们会确定自己的 tl 和 tn 变量，并发送所有子模型的最小 tn 。然后，这个时间被发送给父模型。
+
+done 消息总是将最小 tn 向上传播到层次结构中。最后，根协调器将始终接收到最小 tn ，这是最早下一个内部转换的时间。
+
+```
+**Algorithm: Coupled Model Abstract Simulator**
+
+if receive (i, from, t) message then  
+# 如果接收 (i, from, t) 消息
+
+    for all d in D do  
+    # 对于所有子模型 d ∈ D  
+        send (i, self, t) to d  
+        # 发送 (i, self, t) 到 d  
+
+        active_children ← active_children ∪ {d}  
+        # 将 d 加入活动子模型集合  
+    end for  
+
+else if receive (*, from, t) message then  
+# 否则如果接收 (*, from, t) 消息
+
+    if t = tn then  
+    # 如果 t = tn  
+
+        i* ← select({ Mi | Mi.tn = t , i ∈ D })  
+        # 选择所有下一次事件时间等于 t 的子模型之一  
+
+        send (*, self, t) to i*  
+        # 发送 (*, self, t) 到选中的子模型 i*  
+
+        active_children ← active_children ∪ {i*}  
+        # 将 i* 加入活动子模型集合  
+    end if  
+
+else if receive (y, from, t) message then  
+# 否则如果接收 (y, from, t) 消息
+
+    for all i ∈ I_from \ {self} do  
+    # 对于所有连接到 from 的子模型 i，排除 self  
+
+        send (Z_from,i(y), from, t) to i  
+        # 将经过耦合映射 Z_from,i 的输出 y 转发到 i  
+
+        active_children ← active_children ∪ {i}  
+        # 将 i 加入活动子模型集合  
+    end for  
+
+    if self ∈ I_from then  
+    # 如果self本身在 I_from 中  
+        send (Z_from,self(y), self, t) to parent  
+        # 将输出转发给父模型  
+    end if  
+
+else if receive (x, from, t) message then  
+# 否则如果接收 (x, from, t) 消息
+
+    if tl ≤ t ≤ tn then  
+    # 如果时间合法  
+
+        for all i ∈ I_from do  
+        # 对于所有连接的子模型 i  
+
+            send (Z_self,i(x), self, t) to i  
+            # 转发输入事件 x 经过 Z_self,i 到 i  
+
+            active_children ← active_children ∪ {i}  
+            # 将 i 加入活动子模型集合  
+        end for  
+    end if  
+
+else if receive (done, from, t) message then  
+# 否则如果接收 (done, from, t) 消息
+
+    active_children ← active_children \ {from}  
+    # 将 from 从活动子模型集合中移除  
+
+    if active_children = ∅ then  
+    # 如果没有活动子模型  
+
+        tl ← max{ tl_d | d ∈ D }  
+        # 更新 tl 为所有子模型最后一次转换时间的最大值  
+
+        tn ← min{ tn_d | d ∈ D }  
+        # 更新 tn 为所有子模型下一次转换时间的最小值  
+
+        send (done, self, tn) to parent  
+        # 向父模型发送完成消息  
+    end if  
+
+end if
+
+```
+
+# 5 排队系统
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 6 变体
+
+## 6.1 并行 DEVS
+
+## 6.2 动态结构 DEVS
+
+## **6.3** Cell-DEVS
