@@ -1,8 +1,10 @@
 参考链接:
 
-https://zhuanlan.zhihu.com/p/676655352
+https://zhuanlan.zhihu.com/p/663932651 （递推推导详细）
 
 https://zhuanlan.zhihu.com/p/651280772
+
+https://fancyerii.github.io/2023/10/23/flashattention/ （写得最好 完全替代上面那篇）
 
 https://www.bilibili.com/video/BV1UT421k7rA/?spm_id_from=333.1391.0.0&vd_source=e6a26642f7f1d14e5b11a109a4dfffe9
 
@@ -109,30 +111,37 @@ FlashAttention前向过程
 
 计算行/列块大小。为什么ceil(M / 4 d) ?因为查询、键和值向量是d维的，所以我们还需要将它们组合成输出的d维向量。所以这个大小基本上允许我们用q k v和0个向量最大化SRAM的容量。
 
-比如说，假设M = 1000, d = 5。那么块大小为(1000/4*5)= 50。所以一次加载50个q, k, v, o个向量的块，这样可以减少HBM/SRAM之间的读/写次数。
-
 行与n取小是因为控制 O Q最大是一个n*n的方阵 避免中间矩阵过大
 
-* 1-5：主要在初始化和进行切分：
+![](assets/20250909_113729_image.png)
 
-![](https://pic1.zhimg.com/v2-f2b16ae6bab0c6dc85c6cd743541f896_r.jpg)
+![](assets/20250909_131011_image.png)
 
-图6
+核心算法图
+
+![](https://picx.zhimg.com/v2-6cd98c507dfe73604b3bc0a7e1051f11_r.jpg)
+
+![](assets/20250909_131057_image.png)
 
 * 6-7：遍历K，V的每一块（Outer Loop）将K_j和V_j块从HBM加载到SRAM。在这个时间点上我们仍然有50%的SRAM未被占用(专用于Q和O)
 * 8：遍历Q的每一块 (Inner Loop)
 * 9：将分块后的QKV的小块加载到SRAM (Copy Block to SRAM)
+* ![](assets/20250909_131150_image.png)
 * 10：计算Sij (Compute Block on SRAM)
+* ![](assets/20250909_131241_image.png)
 * 11：计算Sij mask (Compute Block on SRAM)
 * 12：计算m,l统计量 (Compute Block on SRAM)
+* ![](assets/20250909_131254_image.png)
 * 13：计算m,l统计量 (Compute Block on SRAM)
+* ![](assets/20250909_131325_image.png)
+* ![](assets/20250909_131427_image.png)
 * 14：dropout (Compute Block on SRAM)
 * 15：计算Oi并写入HBM (Output to HBM)
+* 这个公式是迭代推导出来的详细看 https://zhuanlan.zhihu.com/p/663932651
+* 或者可以简单理解成 原来的结果乘原来的L 然后更换为新的L' 加上最后一个QK^TV的乘积加缩放即可
+* ![](assets/20250909_131823_image.png)
+* ![](assets/20250909_131712_image.png)
 * 16：把li,mi写入HBM (Output to HBM)
-
-![](https://picx.zhimg.com/v2-6cd98c507dfe73604b3bc0a7e1051f11_r.jpg)
-
-图7
 
 FlashAttention反向过程，反向传播也是通过引入统计量，实现分块计算：
 
