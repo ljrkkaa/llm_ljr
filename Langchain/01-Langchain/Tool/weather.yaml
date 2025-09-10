@@ -1,0 +1,10 @@
+name: weather
+description: 根据地名搜索天气信息
+parameters:
+  type: object
+  properties:
+    city:
+      type: string
+      description: 城市的名称，只写城市名，不要有任何其他内容
+  required:
+    - city

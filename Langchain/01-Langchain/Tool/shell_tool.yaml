@@ -1,0 +1,10 @@
+name: shell_tool
+description: 可以调用电脑的浏览器的shell命令，如访问淘宝，即输入shell命令：start chrome https://www.taobao.com
+parameters:
+  type: object
+  properties:
+    query:
+      type: string
+      description: 打开浏览器访问某个地址的命令
+required:
+  - query
