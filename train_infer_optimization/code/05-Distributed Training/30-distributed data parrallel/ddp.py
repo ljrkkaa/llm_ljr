@@ -69,7 +69,7 @@ for i in range(5):
 # %%
 import torch
 
-tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
 
 def collate_func(batch):
     texts, labels = [], []
@@ -98,7 +98,7 @@ from torch.optim import Adam
 import os
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
 
 if torch.cuda.is_available():
     model = model.to(int(os.environ["LOCAL_RANK"]))
@@ -126,7 +126,7 @@ def evaluate():
             output = model(**batch)
             pred = torch.argmax(output.logits, dim=-1)
             acc_num += (pred.long() == batch["labels"].long()).float().sum()
-    dist.all_reduce(acc_num)
+    dist.all_reduce(acc_num) 
     return acc_num / len(validset)
 
 def train(epoch=3, log_step=100):

@@ -6,3 +6,4 @@ llm_models
 train_infer_optimization/code/05-Distributed Training/28-remote ssh/checkpoints
 post-training/lora/code/21-lora/chatbot
 post-training/lora/code/data/alpaca_data_zh
+train_infer_optimization/code/05-Distributed Training/30-distributed data parrallel/checkpoints
