@@ -1,3 +1,8 @@
+"""
+这个代码就是吧ddp里的ddp.py重新梳理了一下
+运行方式:
+torchrun --nproc_per_node=3 ddp_refactor.py
+"""
 import os
 import torch
 import pandas as pd
@@ -31,7 +36,7 @@ def prepare_dataloader():
 
     trainset, validset = random_split(dataset, lengths=[0.9, 0.1], generator=torch.Generator().manual_seed(42))
 
-    tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+    tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
 
     def collate_func(batch):
         texts, labels = [], []
@@ -41,7 +46,8 @@ def prepare_dataloader():
         inputs = tokenizer(texts, max_length=128, padding="max_length", truncation=True, return_tensors="pt")
         inputs["labels"] = torch.tensor(labels)
         return inputs
-
+    # DistributedSampler 是分布式训练用的采样器。它会根据当前进程（rank）只取该 GPU 对应的数据子集。
+    # 每个 GPU 只处理自己负责的数据子集，避免重复训练相同样本。
     trainloader = DataLoader(trainset, batch_size=32, collate_fn=collate_func, sampler=DistributedSampler(trainset))
     validloader = DataLoader(validset, batch_size=64, collate_fn=collate_func, sampler=DistributedSampler(validset))
 
@@ -50,11 +56,12 @@ def prepare_dataloader():
 
 def prepare_model_and_optimizer():
 
-    model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+    model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
 
     if torch.cuda.is_available():
         model = model.to(int(os.environ["LOCAL_RANK"]))
-
+    
+    # 将模型包装成 DDP 模型，负责自动同步梯度。
     model = DDP(model)
 
     optimizer = Adam(model.parameters(), lr=2e-5)
@@ -77,6 +84,7 @@ def evaluate(model, validloader):
             output = model(**batch)
             pred = torch.argmax(output.logits, dim=-1)
             acc_num += (pred.long() == batch["labels"].long()).float().sum()
+    # 验证阶段同步各 GPU 的准确率计数。
     dist.all_reduce(acc_num)
     return acc_num / len(validloader.dataset)
 
@@ -85,6 +93,7 @@ def train(model, optimizer, trainloader, validloader, epoch=3, log_step=100):
     global_step = 0
     for ep in range(epoch):
         model.train()
+        # 保证每个 epoch shuffle 不同，避免每轮都取相同数据
         trainloader.sampler.set_epoch(ep)
         for batch in trainloader:
             if torch.cuda.is_available():
@@ -95,6 +104,7 @@ def train(model, optimizer, trainloader, validloader, epoch=3, log_step=100):
             loss.backward()
             optimizer.step()
             if global_step % log_step == 0:
+                # 将所有 GPU 上的 loss 求平均，只打印一次（rank=0）。
                 dist.all_reduce(loss, op=dist.ReduceOp.AVG)
                 print_rank_0(f"ep: {ep}, global_step: {global_step}, loss: {loss.item()}")
             global_step += 1
@@ -104,7 +114,7 @@ def train(model, optimizer, trainloader, validloader, epoch=3, log_step=100):
 
 def main():
 
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl") # 初始化分布式训练环境（创建通信组）
 
     trainloader, validloader = prepare_dataloader()
 
