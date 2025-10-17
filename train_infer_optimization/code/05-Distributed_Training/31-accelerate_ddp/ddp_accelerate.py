@@ -29,7 +29,7 @@ def prepare_dataloader():
 
     trainset, validset = random_split(dataset, lengths=[0.9, 0.1], generator=torch.Generator().manual_seed(42))
 
-    tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+    tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
 
     def collate_func(batch):
         texts, labels = [], []
@@ -48,7 +48,7 @@ def prepare_dataloader():
 
 def prepare_model_and_optimizer():
 
-    model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+    model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
 
     optimizer = Adam(model.parameters(), lr=2e-5)
 
