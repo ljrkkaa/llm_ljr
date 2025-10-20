@@ -32,7 +32,7 @@ def prepare_dataloader():
 
     trainset, validset = random_split(dataset, lengths=[0.9, 0.1], generator=torch.Generator().manual_seed(42))
 
-    tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+    tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
 
     def collate_func(batch):
         texts, labels = [], []
@@ -51,7 +51,7 @@ def prepare_dataloader():
 
 def prepare_model_and_optimizer():
 
-    model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+    model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
 
     lora_config = LoraConfig(target_modules=["query", "key", "value"])
 
@@ -84,10 +84,14 @@ def train(model, optimizer, trainloader, validloader, accelerator: Accelerator, 
     resume_epoch = 0
 
     if resume is not None:
+        # 加载之前保存的训练状态（包含模型权重、优化器状态、scaler 等）
         accelerator.load_state(resume)
+        # 计算每个 epoch 有多少个“有效 step”
         steps_per_epoch = math.ceil(len(trainloader) / accelerator.gradient_accumulation_steps)
         resume_step = global_step = int(resume.split("step_")[-1])
+        # 计算从第几个 epoch 恢复
         resume_epoch = resume_step // steps_per_epoch
+        # 计算该 epoch 内要跳过多少个 mini-batch
         resume_step -= resume_epoch * steps_per_epoch
         accelerator.print(f"resume from checkpoint -> {resume}")
 
@@ -131,7 +135,7 @@ def train(model, optimizer, trainloader, validloader, accelerator: Accelerator, 
 
 def main():
 
-    accelerator = Accelerator(gradient_accumulation_steps=2, log_with="tensorboard", project_dir="ckpts")
+    accelerator = Accelerator(gradient_accumulation_steps=2, log_with="tensorboard", project_dir="checkpoints")
 
     accelerator.init_trackers("runs")
 
@@ -141,7 +145,7 @@ def main():
 
     model, optimizer, trainloader, validloader = accelerator.prepare(model, optimizer, trainloader, validloader)
 
-    train(model, optimizer, trainloader, validloader, accelerator, resume="/gemini/code/ckpts/step_150")
+    train(model, optimizer, trainloader, validloader, accelerator, resume="/data/ljr/llm/llm_ljr/train_infer_optimization/code/05-Distributed_Training/32-accelerate_advanced/checkpoints/step_100")
 
 
 if __name__ == "__main__":

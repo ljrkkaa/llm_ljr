@@ -1,18 +1,15 @@
 """
-启动 使用当前目录下的config 
-accelerate launch --config_file default_config.yaml ddp_accelerate.py 
+一步步改到advanced
+accelerate launch ddp_accelerate.py
 """
-import time
-import math
 import torch
 import pandas as pd
-
+import time
 from torch.optim import Adam
 from accelerate import Accelerator
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
-from peft import LoraConfig, get_peft_model
 from transformers import BertTokenizer, BertForSequenceClassification
 
 
@@ -57,13 +54,7 @@ def prepare_model_and_optimizer():
 
     model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
 
-    lora_config = LoraConfig(target_modules=["query", "key", "value"])
-
-    model = get_peft_model(model, lora_config)
-
-    model.print_trainable_parameters()
-
-    optimizer = Adam(model.parameters(), lr=2e-5, weight_decay=0.001)
+    optimizer = Adam(model.parameters(), lr=2e-5)
 
     return model, optimizer
 
@@ -71,7 +62,7 @@ def prepare_model_and_optimizer():
 def evaluate(model, validloader, accelerator: Accelerator):
     model.eval()
     acc_num = 0
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch in validloader:
             output = model(**batch)
             pred = torch.argmax(output.logits, dim=-1)
@@ -80,63 +71,39 @@ def evaluate(model, validloader, accelerator: Accelerator):
     return acc_num / len(validloader.dataset)
 
 
-def train(model, optimizer, trainloader, validloader, accelerator: Accelerator, resume, epoch=3, log_step=10):
+def train(model, optimizer, trainloader, validloader, accelerator: Accelerator, epoch=3, log_step=10):
     global_step = 0
     start_time = time.time()
-
-    resume_step = 0
-    resume_epoch = 0
-
-    if resume is not None:
-        accelerator.load_state(resume)
-        steps_per_epoch = math.ceil(len(trainloader) / accelerator.gradient_accumulation_steps)
-        resume_step = global_step = int(resume.split("step_")[-1])
-        resume_epoch = resume_step // steps_per_epoch
-        resume_step -= resume_epoch * steps_per_epoch
-        accelerator.print(f"resume from checkpoint -> {resume}")
-
-    for ep in range(resume_epoch, epoch):
+    for ep in range(epoch):
         model.train()
-        if resume and ep == resume_epoch and resume_step != 0:
-            active_dataloader = accelerator.skip_first_batches(trainloader, resume_step * accelerator.gradient_accumulation_steps)
-        else:
-            active_dataloader = trainloader
-        for batch in active_dataloader:
+        for batch in trainloader:
             with accelerator.accumulate(model):
                 optimizer.zero_grad()
                 output = model(**batch)
                 loss = output.loss
                 accelerator.backward(loss)
                 optimizer.step()
-
+                # 在梯度累计的中间步骤，accelerator.sync_gradients = False；
+                # 只有在需要真正更新参数的那一步，accelerator.sync_gradients = True
                 if accelerator.sync_gradients:
                     global_step += 1
-
                     if global_step % log_step == 0:
                         loss = accelerator.reduce(loss, "mean")
                         accelerator.print(f"ep: {ep}, global_step: {global_step}, loss: {loss.item()}")
                         accelerator.log({"loss": loss.item()}, global_step)
-
-                    if global_step % 50 == 0 and global_step != 0:
-                        accelerator.print(f"save checkpoint -> step_{global_step}")
-                        accelerator.save_state(accelerator.project_dir + f"/step_{global_step}")
-                        accelerator.unwrap_model(model).save_pretrained(
-                            save_directory=accelerator.project_dir + f"/step_{global_step}/model",
-                            is_main_process=accelerator.is_main_process,
-                            state_dict=accelerator.get_state_dict(model),
-                            save_func=accelerator.save
-                        )
         acc = evaluate(model, validloader, accelerator)
-        accelerator.print(f"ep: {ep}, acc: {acc}, time: {time.time() - start_time}")
-        accelerator.log({"acc": acc}, global_step)
-
+        accelerator.print(f"ep: {ep}, acc: {acc}, time :{time.time()- start_time}")
+        accelerator.log({"eval_acc": acc}, global_step)
+    
     accelerator.end_training()
 
 
 def main():
 
-    accelerator = Accelerator(log_with="tensorboard", project_dir="ckpts")
-
+    accelerator = Accelerator(mixed_precision="bf16", 
+                                gradient_accumulation_steps=2, 
+                                log_with="tensorboard",
+                                project_dir="checkpoints")
     accelerator.init_trackers("runs")
 
     trainloader, validloader = prepare_dataloader()
@@ -145,7 +112,7 @@ def main():
 
     model, optimizer, trainloader, validloader = accelerator.prepare(model, optimizer, trainloader, validloader)
 
-    train(model, optimizer, trainloader, validloader, accelerator, resume=None)
+    train(model, optimizer, trainloader, validloader, accelerator)
 
 
 if __name__ == "__main__":
