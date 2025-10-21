@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 """
 启动 使用当前目录下的config 
 accelerate launch --config_file default_config.yaml ddp_accelerate.py 
 """
+=======
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 import time
 import math
 import torch
@@ -36,7 +39,11 @@ def prepare_dataloader():
 
     trainset, validset = random_split(dataset, lengths=[0.9, 0.1], generator=torch.Generator().manual_seed(42))
 
+<<<<<<< HEAD
     tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
+=======
+    tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 
     def collate_func(batch):
         texts, labels = [], []
@@ -55,7 +62,11 @@ def prepare_dataloader():
 
 def prepare_model_and_optimizer():
 
+<<<<<<< HEAD
     model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
+=======
+    model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 
     lora_config = LoraConfig(target_modules=["query", "key", "value"])
 

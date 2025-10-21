@@ -29,7 +29,11 @@ datasets
 # %%
 import torch
 
+<<<<<<< HEAD
 tokenizer = BertTokenizer.from_pretrained("hfl/rbt3")
+=======
+tokenizer = BertTokenizer.from_pretrained("/gemini/code/model")
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 
 def process_function(examples):
     tokenized_examples = tokenizer(examples["review"], max_length=128, truncation=True)
@@ -43,7 +47,11 @@ tokenized_datasets
 # ## Step5 创建模型
 
 # %%
+<<<<<<< HEAD
 model = BertForSequenceClassification.from_pretrained("hfl/rbt3")
+=======
+model = BertForSequenceClassification.from_pretrained("/gemini/code/model")
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 
 # %%
 model.config

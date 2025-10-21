@@ -10,6 +10,7 @@
 | ✅ | 字符串相加             | leetcode.415 |
 | ✅ | 无重复字符的最长子串   | leetcode.3   |
 | ✅ | K个一组翻转链表        | leetcode.25  |
+<<<<<<< HEAD
 | ✅ | 反转链表               | leetcode.206 | 
 | ✅ | 数组中的第K个最大元素  | leetcode.215 |
 | ☐ | LRU缓存机制            | leetcode.146 |
@@ -19,6 +20,17 @@
 | ✅ | 二叉树的右视图         | leetcode.199 |
 | ✅ | 环形链表               | leetcode.141 |
 | ✅ | 对称二叉树             | leetcode.101 |
+=======
+| ✅ | 反转链表               | leetcode.206 |
+| ✅ | 数组中的第K个最大元素  | leetcode.215 |
+| ☐ | LRU缓存机制            | leetcode.146 |
+| ☐ | 二叉树的锯齿形层次遍历 | leetcode.103 |
+| ☐ | 三数之和               | leetcode.15  |
+| ☐ | 合并两个有序数组       | leetcode.88  |
+| ☐ | 二叉树的右视图         | leetcode.199 |
+| ☐ | 环形链表               | leetcode.141 |
+| ☐ | 对称二叉树             | leetcode.101 |
+>>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
 | ☐ | 最长递增子序列         | leetcode.300 |
 | ☐ | 有效的括号             | leetcode.20  |
 | ☐ | 下一个排列             | leetcode.31  |
