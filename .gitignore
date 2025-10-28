@@ -6,11 +6,6 @@ llm_models
 post-training/lora/code/21-lora/chatbot
 post-training/lora/code/data/alpaca_data_zh
 **/checkpoints/
-<<<<<<< HEAD
 **/ckpts/
 Langchain/01-Langchain/*/
 RAG/rag_demo/medical_data.txt
-=======
-Langchain/01-Langchain/*/
-RAG/rag_demo/medical_data.txt
->>>>>>> 9206bdc4cdfb2d782dd49b74c6be6fb28ca160a7
