@@ -383,14 +383,14 @@ if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
     
     SYSTEM_PROMPT = """
-按照如下格式回答问题：
-<think>
-你的思考过程
-</think>
-<answer>
-你的回答
-</answer>
-"""
+        按照如下格式回答问题：
+        <think>
+        你的思考过程
+        </think>
+        <answer>
+        你的回答
+        </answer>
+        """
     
     args = GRPOArguments()
     
