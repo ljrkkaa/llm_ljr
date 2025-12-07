@@ -33,7 +33,7 @@ LLM推理分为两个阶段：**prefill阶段**和 **decode阶段**
 
 图1、Transformer 内部的计算细节
 
-我们以一个序列的 tt 位置的token为例，计算一层Tansformer的attention过程，如列下公式所示：
+我们以一个序列的 t 位置的token为例，计算一层Tansformer的attention过程，如列下公式所示：
 
 ![](https://pic3.zhimg.com/v2-5b7dae1fc3d57e13c9d106c0c19d7660_r.jpg)
 
@@ -84,10 +84,10 @@ LLM推理分为两个阶段：**prefill阶段**和 **decode阶段**
 首先我们先以一个token的计算过程为例，看下一个token计算要存储多少KV？为了方便理解，我们以Qwen-72B模型为例，模型配置详见： [Qwen-72B-Chat](https://huggingface.co/Qwen/Qwen-72B-Chat/blob/main/config.json)。
 
 > 模型共80层，每层有64个Head，每个Head的向量维度是128，
-> l=80l=80 ， n\_h =64n\_h =64 ， d\_h = 128d\_h = 128
+> l=80， n\_h =64 ， d\_h = 128
 > 注：这里先不考虑qwen 72B GQA的设置（实际KV做了压缩处理），只考虑朴素的MHA的模型结构（假设未做任何处理），GQA后面再详细讨论。
 
-如下图5所示，计算一个token，每个Transformer层的每个Head都要存储一对 k,vk,v 。
+如下图5所示，计算一个token，每个Transformer层的每个Head都要存储一对 k,v。
 
 ![](https://pic3.zhimg.com/v2-4e9f931fee27084a47497b4eb52340c4_r.jpg)
 
@@ -133,10 +133,8 @@ LLM推理分为两个阶段：**prefill阶段**和 **decode阶段**
 
 这里单独出来一块矩阵是因为加上rope后 矩阵不吸收
 
-
 ![](assets/20250901_160949_image.png)
 
 ## 实际应用中
-
 
 ![](assets/20250901_161022_image.png)
