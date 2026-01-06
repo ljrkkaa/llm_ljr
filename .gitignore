@@ -9,3 +9,8 @@ post-training/lora/code/data/alpaca_data_zh
 **/ckpts/
 Langchain/01-Langchain/*/
 RAG/rag_demo/medical_data.txt
+
+# Ignore all .env files
+.env
+.env.*
+
