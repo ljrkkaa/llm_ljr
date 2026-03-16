@@ -59,5 +59,8 @@ https://www.zhihu.com/tardis/zm/art/647109286?source_id=1003
 
 NTK－aware Scaled RoPE  https://zhuanlan.zhihu.com/p/20328774059
 
+
+https://zhuanlan.zhihu.com/p/153114618974
+
 # ALibi
 ![alt text](image-5.png)

@@ -1,4 +1,3 @@
-
 以 PPO 为代表的On Policy 路线
 
 # 1 RLAIF
@@ -119,17 +118,20 @@ huggingface中（https://huggingface.co/blog/zh/putting_rl_back_in_rlhf_with_rlo
 
 参考链接：
 
+https://zhuanlan.zhihu.com/p/38747329526
+
 https://zhuanlan.zhihu.com/p/14888098807
 
 https://arxiv.org/html/2501.03262?_immersive_translate_auto_translate=1
-
-
 
 ![](assets/20250828_140531_image.png)
 
 REINFORCE++的核心思想是将PPO中的各种优化技巧整合到经典的强化学习算法REINFORCE中，以提升其性能和稳定性。这样REINFORCE++不需要 Critic 从而节省计算资源，又有加持了 PPO 相关的优化技巧实现高效训练。 REINFORCE++的特点是 比 GRPO 稳定比PPO快。
 
 我们在 REINFORCE 上集成下面的优化 Tricks 以稳定模型的训练:
+
+
+![](assets/20260316_195324_image.png)
 
 ## Token Level KL-Penalty
 
